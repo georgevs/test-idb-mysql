@@ -3,6 +3,7 @@ const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const createError = require('http-errors');
 
 //----------------------------------------------------------------------------------------
 const config = () => ({
@@ -22,7 +23,10 @@ const config = () => ({
 const db = ({ host, port, user, password }) => {
   const connection = mysql.createConnection({ host, port, user, password });
   connection.connect();
-  const query = ({ sql, values }, callback) => connection.query(sql, values, callback);
+  const query = ({ sql, values }, callback) => {
+    // console.log('db/query', { sql, values });
+    connection.query(sql, values, callback);
+  };
   return { query };
 };
 
@@ -31,21 +35,91 @@ const app = (db) => {
   const app = express();
   app.use(cors());
   app.use(bodyParser.json());
-  
-  const sendAll = (res) => (err, results) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.status(err ? 500 : 200);
-    res.send(JSON.stringify(err || results));
-  };
 
-  const sendOne = (res) => (err, results) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.status(err ? 500 : results.length == 0 ? 404 : 200);
-    res.send(JSON.stringify(err || results[0] || {}));
-  };
+  app.route('/users')
+    .get((req, res, next) => {
+      const sql = 'SELECT * FROM test.Users';
+      db.query({ sql }, (err, results) => {
+        if (err) { next(err) }
+        else { res.json(results) }
+      });
+    })
+    .post((req, res, next) => {
+      const { email, full_name } = req.body;
+      const sql = 'INSERT INTO test.Users(email, full_name) VALUES(?,?)';
+      const values = [email, full_name];
+      db.query({ sql, values }, (err, result) => {
+        if (err?.code === 'ER_BAD_NULL_ERROR') { err = createError.BadRequest(err.sqlMessage) }
+        else if (err?.code === 'ER_DUP_ENTRY') { err = createError.Conflict(err.sqlMessage) }
+        else if (!result?.insertId) { err = createError.InternalServerError(err?.sqlMessage) }
+        if (err) { next(err) }
+        else { res.json({ id: result.insertId }) }
+      });
+    })
+    .all(() => { throw createError.MethodNotAllowed() });
 
-  app.get('/users', (req, res) => {
-    db.query({ sql: 'SELECT * FROM test.Users' }, sendAll(res));
+  app.route('/users/:id')
+    .get((req, res, next) => {
+      const id = Number.parseInt(req.params.id);
+      if (isNaN(id)) { throw createError.BadRequest('Invalid id') }
+      const sql = 'SELECT * FROM test.Users WHERE id=?';
+      const values = [id];
+      db.query({ sql, values }, (err, results) => {
+        if (!results?.length || results[0]?.id !== id) { err = createError.NotFound() }
+        if (err) { next(err) }
+        else { res.json(results[0]) }
+      });
+    })
+    .delete((req, res, next) => {
+      const id = Number.parseInt(req.params.id);
+      if (isNaN(id)) { throw createError.BadRequest('Invalid id') }
+      const sql = 'DELETE FROM test.Users WHERE id=?';
+      const values = [id];
+      db.query({ sql, values }, (err, result) => {
+        if (!result?.affectedRows) { err = createError.NotFound() }
+        if (err) { next(err) }
+        else { res.json({ id }) }
+      });
+    })
+    .put((req, res, next) => {
+      const id = Number.parseInt(req.params.id);
+      if (isNaN(id)) { throw createError.BadRequest('Invalid id') }
+      const { email, full_name } = req.body;
+      const { terms, values: termsValues } = Array.from(Object.entries({ email, full_name }))
+        .filter(([,value]) => value !== undefined)
+        .reduce((acc, [key, value]) => (
+          acc.terms.push(`${key}=?`),
+          acc.values.push(value),
+          acc
+        ), { terms: [], values: [] });
+        
+      if (!terms.length) { throw createError.BadRequest('No fields to update') }
+
+      const update = 'UPDATE test.Users';
+      const set = ['SET', terms.join(',')].join(' ');
+      const where = 'WHERE id=?';
+
+      const sql = [update, set, where].join(' '); 
+      const values = [...termsValues, id];
+
+      db.query({ sql, values }, (err, result) => {
+        if (!result?.affectedRows) { err = createError.NotFound() }
+        if (err?.code === 'ER_BAD_NULL_ERROR') { err = createError.BadRequest(err.sqlMessage) }
+        if (err) { next(err) }
+        else { res.json({ id }) }
+      });
+    })
+    .all(() => { throw createError.MethodNotAllowed() });
+
+  app.route('*')
+    .all(() => { throw createError.NotFound() });
+
+  app.use((err, req, res, next) => {
+    // console.log({ err });
+    if (err?.sqlMessage) { err = createError.InternalServerError(err.sqlMessage) }
+    if (!err?.status) { err = createError.InternalServerError(err) }
+    const { status, message } = { ...err, ...err.constructor.prototype };
+    res.status(status).json({ status, message });
   });
 
   return app;

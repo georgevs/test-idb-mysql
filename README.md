@@ -25,6 +25,21 @@ docker container run --rm -d \
   --workdir /home/node/app \
   --volume "$PWD:/home/node/app" \
   node server
+
+curl http://172.18.0.202:8080/users
+
+curl http://172.18.0.202:8080/users/1
+
+curl http://172.18.0.202:8080/users/1 -X DELETE
+
+curl http://172.18.0.202:8080/users -H 'Content-Type: application/json' -d '{"email":"alice@acme.com","full_name":"Alice Henderson"}'
+curl http://172.18.0.202:8080/users -H 'Content-Type: application/json' -d '{"full_name":"Alice Henderson"}'
+curl http://172.18.0.202:8080/users -H 'Content-Type: application/json' -d '{"full_name":"Alice Henderson}'
+curl http://172.18.0.202:8080/users -H 'Content-Type: application/json' -d '{"full_name":"Alice Henderson"}'
+
+curl http://172.18.0.202:8080/users/27 -H 'Content-Type: application/json' -d '{"full_name":"Alice Wonderland"}' -X PUT
+curl http://172.18.0.202:8080/users/27 -H 'Content-Type: application/json' -d '{}' -X PUT
+curl http://172.18.0.202:8080/users -H 'Content-Type: application/json' -d '{}' -X PUT
 ```
 
 ## Run the app
