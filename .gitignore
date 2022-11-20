@@ -1,4 +1,5 @@
 node_modules
 mysql
+certs
 __*
 package-lock.json

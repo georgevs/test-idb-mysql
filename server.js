@@ -1,15 +1,17 @@
-const http = require('http');
+const https = require('https');
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const createError = require('http-errors');
+const fs = require('fs');
 
 //----------------------------------------------------------------------------------------
 const config = () => ({
   server: {
-    // key, cert
-    port: 8080
+    key: fs.readFileSync('./certs/cert-key-nopassword.pem', 'utf8'),
+    cert: fs.readFileSync('./certs/cert.pem', 'utf8'),
+    port: 3443
   },
   db: {
     host: '172.18.0.201', 
@@ -126,8 +128,8 @@ const app = (db) => {
 };
 
 //----------------------------------------------------------------------------------------
-const server = ({ port }, app) => {
-  const server = http.createServer(app);
+const server = ({ key, cert, port }, app) => {
+  const server = https.createServer({ key, cert }, app);
   const start = () => {
     server.listen(port, () => { console.log(`Listening on port ${port}`)});
   };
