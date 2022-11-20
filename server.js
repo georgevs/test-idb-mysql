@@ -34,11 +34,8 @@ const db = ({ host, port, user, password }) => {
 
 //----------------------------------------------------------------------------------------
 const app = (db) => {
-  const app = express();
-  app.use(cors());
-  app.use(bodyParser.json());
-
-  app.route('/users')
+  const users = express.Router();
+  users.route('/')
     .get((req, res, next) => {
       const sql = 'SELECT * FROM test.Users';
       db.query({ sql }, (err, results) => {
@@ -60,7 +57,7 @@ const app = (db) => {
     })
     .all(() => { throw createError.MethodNotAllowed() });
 
-  app.route('/users/:id')
+  users.route('/:id')
     .get((req, res, next) => {
       const id = Number.parseInt(req.params.id);
       if (isNaN(id)) { throw createError.BadRequest('Invalid id') }
@@ -113,8 +110,11 @@ const app = (db) => {
     })
     .all(() => { throw createError.MethodNotAllowed() });
 
-  app.route('*')
-    .all(() => { throw createError.NotFound() });
+  const app = express();
+  app.use(cors());
+  app.use(bodyParser.json());
+  app.use('/api/v1/users', users);
+  app.route('*').all(() => { throw createError.NotFound() });
 
   app.use((err, req, res, next) => {
     // console.log({ err });

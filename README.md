@@ -31,20 +31,20 @@ docker container run --rm -d \
   --volume "$PWD:/home/node/app" \
   node server
 
-curl https://172-18-0-202.spamfro.xyz:3443/users
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users
 
-curl https://172-18-0-202.spamfro.xyz:3443/users/1
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users/1
 
-curl https://172-18-0-202.spamfro.xyz:3443/users/1 -X DELETE
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users/1 -X DELETE
 
-curl https://172-18-0-202.spamfro.xyz:3443/users -H 'Content-Type: application/json' -d '{"email":"alice@acme.com","full_name":"Alice Henderson"}'
-curl https://172-18-0-202.spamfro.xyz:3443/users -H 'Content-Type: application/json' -d '{"full_name":"Alice Henderson"}'
-curl https://172-18-0-202.spamfro.xyz:3443/users -H 'Content-Type: application/json' -d '{"full_name":"Alice Henderson}'
-curl https://172-18-0-202.spamfro.xyz:3443/users -H 'Content-Type: application/json' -d '{"full_name":"Alice Henderson"}'
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users -H 'Content-Type: application/json' -d '{"email":"alice@acme.com","full_name":"Alice Henderson"}'
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users -H 'Content-Type: application/json' -d '{"full_name":"Alice Henderson"}'
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users -H 'Content-Type: application/json' -d '{"full_name":"Alice Henderson}'
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users -H 'Content-Type: application/json' -d '{"full_name":"Alice Henderson"}'
 
-curl https://172-18-0-202.spamfro.xyz:3443/users/27 -H 'Content-Type: application/json' -d '{"full_name":"Alice Wonderland"}' -X PUT
-curl https://172-18-0-202.spamfro.xyz:3443/users/27 -H 'Content-Type: application/json' -d '{}' -X PUT
-curl https://172-18-0-202.spamfro.xyz:3443/users -H 'Content-Type: application/json' -d '{}' -X PUT
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users/27 -H 'Content-Type: application/json' -d '{"full_name":"Alice Wonderland"}' -X PUT
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users/27 -H 'Content-Type: application/json' -d '{}' -X PUT
+curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users -H 'Content-Type: application/json' -d '{}' -X PUT
 ```
 
 ## Run the app
