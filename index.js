@@ -1,5 +1,3 @@
-// index.js
-
 //----------------------------------------------------------------------------------------
 const uniqueIndex = fn => xs => xs.reduce((acc, x) => acc.set(fn(x), x), new Map);
 
@@ -21,7 +19,6 @@ const eq = (x, y) => {
 };
 const compareKey = ([lhs], [rhs]) => lhs.localeCompare(rhs);
 
-
 //----------------------------------------------------------------------------------------
 class UsersSDK {
   constructor({ baseUrl }) { this.baseUrl = new URL(baseUrl) }
@@ -33,6 +30,18 @@ class UsersSDK {
         return res.json();
       });
   }
+  // addUsers(users) {
+  //   console.log('db/addUsers', users);
+  //   return fetch(new URL('users', this.baseUrl), {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify(users)
+  //     })
+  //     .then(res => {
+  //       if (!res.ok) { throw Error(res.statusText) }
+  //       return res.json();
+  //     });
+  //   }
 }
 
 //----------------------------------------------------------------------------------------
@@ -83,7 +92,7 @@ class UsersIDB {
 
 //----------------------------------------------------------------------------------------
 function loadUsers(model) {
-  console.log('loadUsers');
+  console.log('action/loadUsers');
 
   model.setLoading();
 
@@ -91,7 +100,7 @@ function loadUsers(model) {
   const idb = new UsersIDB();
 
   const f = sdk.users().then(users => ({ users, kind: 'fetched' }));
-  const o = idb.open();
+  // const o = idb.open();
   const r = idb.users().then(users => ({ users, kind: 'persisted' }));
 
   Promise.all([f, r])
@@ -112,6 +121,14 @@ function loadUsers(model) {
     .catch(err => { model.loadError(err) })
     .then(() => { model.clearLoading() });
 }
+
+// function putUsers(users) {
+//   console.log('action/putUsers', users);
+//   const sdk = new UsersSDK(config().backend);
+//   const idb = new UsersIDB();
+
+//   sdk.putUsers(users);
+// }
 
 //----------------------------------------------------------------------------------------
 class Model extends EventTarget {
@@ -208,7 +225,7 @@ class Ui {
 //----------------------------------------------------------------------------------------
 const config = () => ({
   backend: {
-    baseUrl: 'http://localhost:8082/'
+    baseUrl: 'https://spamfro.xyz:8082/api/v1/'
   }
 });
 
@@ -219,11 +236,36 @@ const ui = new Ui(model);
 function windowLoad() {
   document.querySelector('.btn.load')
     .addEventListener('click', loadClick);
+  // document.querySelector('.btn.add')
+  //   .addEventListener('click', addClick);
 }
 
 function loadClick() {
   console.log('loadClick');
   loadUsers(model);
 }
+
+// function addClick() {
+//   console.log('addClick');
+//   document.querySelector('.btn.add').style.display = 'none';
+//   const form = document.querySelector('.form.add-user');
+//   form.style.display = 'block';
+//   form.addEventListener('submit', addUserSubmit);
+//   // form.querySelector('.btn.submit').addEventListener('click', submitClick);
+// }
+
+// function addUserSubmit(e) {
+//   console.log('app/addUserSubmit', e);
+//   e.preventDefault();
+//   const form = e.target;
+//   if (e.submitter === form.querySelector('.btn.submit')) {
+//     const email = form.querySelector('.edit.email').value;
+//     const full_name = form.querySelector('.edit.full-name').value;
+//     // if (!validate) { return }
+//     putUsers([{ email, full_name }]);
+//   }
+//   form.style.display = 'none';
+//   document.querySelector('.btn.add').style.display = 'block';
+// }
 
 window.addEventListener('load', windowLoad);
