@@ -11,7 +11,3 @@ CREATE TABLE Users(
 );
 
 CREATE INDEX UsersEmailIndex ON Users(email);
-
-INSERT INTO Users(full_name, email)
-VALUES ('Alice Henderson', 'alice@acme.org'), 
-       ('Bob Sanders', 'bob@acme.org');

@@ -9,8 +9,8 @@ const fs = require('fs');
 //----------------------------------------------------------------------------------------
 const config = () => ({
   server: {
-    key: fs.readFileSync('./certs/cert-key-nopassword.pem', 'utf8'),
-    cert: fs.readFileSync('./certs/cert.pem', 'utf8'),
+    key: fs.readFileSync('../certs/cert-key-nopassword.pem', 'utf8'),
+    cert: fs.readFileSync('../certs/cert.pem', 'utf8'),
     port: 3443
   },
   db: {

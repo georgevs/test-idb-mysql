@@ -32,14 +32,17 @@ mysql < db.sql
 
 ## Run the backend
 ```
+npm install --prefix backend
+
 docker container run --rm \
   --name test-backend \
   --network bridge-sba-opx \
   --ip 172.18.0.202 \
   --user node \
-  --workdir /home/node/app \
-  --volume "$PWD:/home/node/app" \
-  -d node server
+  --workdir /home/node/backend \
+  --volume "$PWD/backend:/home/node/backend" \
+  --volume "$PWD/certs:/home/node/certs" \
+  -d node index
 
 curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users
 
@@ -59,12 +62,15 @@ curl https://172-18-0-202.spamfro.xyz:3443/api/v1/users -H 'Content-Type: applic
 
 ## Run the app
 ```
+npm install --prefix app
+
 docker container run --rm \
   --name test-app \
   --network bridge-sba-opx \
   --ip 172.18.0.203 \
   --user node \
   --workdir /home/node/app \
-  --volume "$PWD:/home/node/app" \
-  -d node npx http-server . -c-1 --ssl -p 3443 --cert ./certs/cert.pem --key ./certs/cert-key-nopassword.pem
+  --volume "$PWD/app:/home/node/app" \
+  --volume "$PWD/certs:/home/node/certs" \
+  -d node npx http-server ./ -c-1 --ssl -p 3443 --cert ../certs/cert.pem --key ../certs/cert-key-nopassword.pem
 ```
