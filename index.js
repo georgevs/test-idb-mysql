@@ -20,7 +20,7 @@ const eq = (x, y) => {
 const compareKey = ([lhs], [rhs]) => lhs.localeCompare(rhs);
 
 //----------------------------------------------------------------------------------------
-class UsersSDK {
+class UsersDb {
   constructor({ baseUrl }) { this.baseUrl = new URL(baseUrl) }
   users() {
     console.log('db/users');
@@ -30,22 +30,10 @@ class UsersSDK {
         return res.json();
       });
   }
-  // addUsers(users) {
-  //   console.log('db/addUsers', users);
-  //   return fetch(new URL('users', this.baseUrl), {
-  //       method: 'POST',
-  //       headers: { 'Content-Type': 'application/json' },
-  //       body: JSON.stringify(users)
-  //     })
-  //     .then(res => {
-  //       if (!res.ok) { throw Error(res.statusText) }
-  //       return res.json();
-  //     });
-  //   }
 }
 
 //----------------------------------------------------------------------------------------
-class UsersIDB {
+class UsersIDb {
   constructor() {
     const upgrade = (db, { oldVersion, newVersion }) => {
       db.createObjectStore('Users', { keyPath: 'id' });
@@ -91,61 +79,55 @@ class UsersIDB {
 }
 
 //----------------------------------------------------------------------------------------
-function loadUsers(model) {
-  console.log('action/loadUsers');
-
-  model.setLoading();
-
-  const sdk = new UsersSDK(config().backend);
-  const idb = new UsersIDB();
-
-  const f = sdk.users().then(users => ({ users, kind: 'fetched' }));
-  // const o = idb.open();
-  const r = idb.users().then(users => ({ users, kind: 'persisted' }));
-
-  Promise.all([f, r])
-    .then(([{ users: dbUsers }, { users: idbUsers }]) => {
-      const idbIds = new Set(idbUsers.map(({ id }) => id));
-      const dbIds = new Set(dbUsers.map(({ id }) => id));
-      const removed = diffSet(idbIds, dbIds);
-      idb.deleteUsers(removed);
-      idb.putUsers(dbUsers);
-    });
-
-  Promise.any([f, r])
-    .then(({ users, kind }) => {
-      if (kind === 'persisted') { model.loadedUsers(users) }
-      return f;
-    })
-    .then(({ users }) => { model.loadedUsers(users) })
-    .catch(err => { model.loadError(err) })
-    .then(() => { model.clearLoading() });
+class Actions extends EventTarget {
+  constructor(services) {
+    super();
+    this.services = services;
+  }
+  load() {
+    console.log('actions/load');
+  
+    this.dispatchEvent(new CustomEvent('actions:load-started'));
+  
+    const f = this.services.db.users().then(users => ({ users, kind: 'fetched' }));
+    const r = this.services.idb.users().then(users => ({ users, kind: 'persisted' }));
+  
+    Promise.all([f, r])
+      .then(([{ users: dbUsers }, { users: idbUsers }]) => {
+        const idbIds = new Set(idbUsers.map(({ id }) => id));
+        const dbIds = new Set(dbUsers.map(({ id }) => id));
+        const removed = diffSet(idbIds, dbIds);
+        this.services.idb.deleteUsers(removed);
+        this.services.idb.putUsers(dbUsers);
+      });
+  
+    Promise.any([f, r])
+      .then(({ users, kind }) => {
+        if (kind === 'persisted') { 
+          this.dispatchEvent(new CustomEvent('actions:load-users', { detail: { users } }));
+        }
+        return f;
+      })
+      .then(({ users }) => { 
+        this.dispatchEvent(new CustomEvent('actions:load-users', { detail: { users } }));
+      })
+      .catch(error => { 
+        this.dispatchEvent(new CustomEvent('actions:load-error', { detail: { error } }));
+      })
+      .then(() => {
+        this.dispatchEvent(new CustomEvent('actions:load-complete'));
+      });
+  }
 }
-
-// function putUsers(users) {
-//   console.log('action/putUsers', users);
-//   const sdk = new UsersSDK(config().backend);
-//   const idb = new UsersIDB();
-
-//   sdk.putUsers(users);
-// }
 
 //----------------------------------------------------------------------------------------
 class Model extends EventTarget {
   constructor() {
     super();
     this.users = new Map;
-    this.loading = false;
-    this.err = null;
   }
-  setLoading() {
-    console.log('model/setLoading');
-    this.loading = true;
-    this.loadErr = null;
-    this.dispatchEvent(new CustomEvent('model:loading'));
-  }
-  loadedUsers(data) {
-    console.log('model/loadedUsers', data);
+  setUsers(data) {
+    console.log('model/setUsers', data);
     const users = uniqueIndex(({ id }) => id)(data);
     const oldIds = new Set(this.users.keys());
     const newIds = new Set(users.keys());
@@ -157,37 +139,41 @@ class Model extends EventTarget {
     );
     if (added.size + removed.size + updated.size > 0) {
       this.users = users;
-      this.dispatchEvent(new CustomEvent('model:loadedUsers', { detail: { added, removed, updated } }));
+      this.dispatchEvent(new CustomEvent('model:users-changed', { detail: { added, removed, updated } }));
     }
-  }
-  loadError(err) {
-    console.log('model/loadError', err);
-    this.err = err;
-    this.dispatchEvent(new customElement('model:loadError'));
-  }
-  clearLoading() {
-    console.log('model/clearLoading');
-    this.loading = false;
-    this.dispatchEvent(new CustomEvent('model:loading'));
   }
 }
 
 //----------------------------------------------------------------------------------------
-class Ui {
-  constructor(model) {
-    model.addEventListener('model:loading', e => { this.renderLoading(e.target.loading) });
-    model.addEventListener('model:loadedUsers', e => { this.renderUsers(e.target.users, e.detail) });
-    model.addEventListener('model:loadedError', e => { this.renderError(e.target.err) });
+class Btn {
+  constructor(sel) {
+    this.el = document.querySelector(sel);
+    this.addEventListener = this.el.addEventListener.bind(this.el);
+  }
+}
+
+class Label {
+  constructor(sel) {
+    this.el = document.querySelector(sel);
+  }
+  render(text) {
+    this.el.textContent = text || '';
+    this.el.style.display = text ? 'block' : 'none';
+  }
+}
+
+class List {
+  constructor(sel) {
+    this.el = document.querySelector(sel);
+  }
+}
+
+class UsersList extends List {
+  constructor(sel) {
+    super(sel);
     this.users = new Map;
   }
-  renderLoading(loading) {
-    console.log('ui/renderLoading', loading);
-    this.renderMessage(loading ? 'Loading...' : '');
-    if (loading) { this.renderError(null) }
-  }
-  renderUsers(users, { added, removed, updated }) {
-    console.log('ui/renderUsers', { users, added, removed, updated });
-    const ul = document.querySelector('.list.users');
+  render(users, { added, removed, updated }) {
     Array.from(this.users.keys()).forEach(id => { 
       if (removed.has(id)) {
         this.users.get(id).li.remove();
@@ -204,68 +190,49 @@ class Ui {
       const user = users.get(id);
       const li = document.createElement('li');
       li.textContent = user.email;
-      ul.appendChild(li);
+      this.el.appendChild(li);
       this.users.set(id, { user, li });
     });
   }
-  renderError(error) {
-    console.log('ui/renderError', error);
-    const p = document.querySelector('.label.error');
-    p.textContent = error?.message || '';
-    p.style.display = error ? 'block' : 'none';
+}
+
+class Ui {
+  constructor() {
+    this.load = new Btn('.btn.load');
+    this.message = new Label('.label.message');
+    this.error = new Label('.label.error');
+    this.users = new UsersList('.list.users');
   }
-  renderMessage(message) {
-    console.log('ui/renderMessage', message);
-    const p = document.querySelector('.label.message');
-    p.textContent = message || '';
-    p.style.display = message ? 'block' : 'none';
+}
+//----------------------------------------------------------------------------------------
+class App {
+  constructor(config) {
+    this.config = config;
+    this.services = {
+      db: new UsersDb(this.config.db),
+      idb: new UsersIDb()
+    }
+    this.model = new Model();
+    this.ui = new Ui();
+    this.actions = new Actions(this.services);
+
+    this.ui.load.addEventListener('click', () => { this.actions.load() });
+
+    this.actions.addEventListener('actions:load-started', () => { this.ui.message.render('Loading...') });
+    this.actions.addEventListener('actions:load-users', (e) => { this.model.setUsers(e.detail.users) });
+    this.actions.addEventListener('actions:load-error', (e) => { this.ui.error.render(e.detail.error?.message) });
+    this.actions.addEventListener('actions:load-complete', () => { this.ui.message.render() });
+
+    this.model.addEventListener('model:users-changed', (e) => { this.ui.users.render(e.target.users, e.detail) });
   }
 }
 
 //----------------------------------------------------------------------------------------
 const config = () => ({
-  backend: {
+  db: {
     baseUrl: 'https://spamfro.xyz:8082/api/v1/'
   }
 });
 
 //----------------------------------------------------------------------------------------
-const model = new Model();
-const ui = new Ui(model);
-
-function windowLoad() {
-  document.querySelector('.btn.load')
-    .addEventListener('click', loadClick);
-  // document.querySelector('.btn.add')
-  //   .addEventListener('click', addClick);
-}
-
-function loadClick() {
-  console.log('loadClick');
-  loadUsers(model);
-}
-
-// function addClick() {
-//   console.log('addClick');
-//   document.querySelector('.btn.add').style.display = 'none';
-//   const form = document.querySelector('.form.add-user');
-//   form.style.display = 'block';
-//   form.addEventListener('submit', addUserSubmit);
-//   // form.querySelector('.btn.submit').addEventListener('click', submitClick);
-// }
-
-// function addUserSubmit(e) {
-//   console.log('app/addUserSubmit', e);
-//   e.preventDefault();
-//   const form = e.target;
-//   if (e.submitter === form.querySelector('.btn.submit')) {
-//     const email = form.querySelector('.edit.email').value;
-//     const full_name = form.querySelector('.edit.full-name').value;
-//     // if (!validate) { return }
-//     putUsers([{ email, full_name }]);
-//   }
-//   form.style.display = 'none';
-//   document.querySelector('.btn.add').style.display = 'block';
-// }
-
-window.addEventListener('load', windowLoad);
+window.addEventListener('load', () => { window.app = new App(config()) });

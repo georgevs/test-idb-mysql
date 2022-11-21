@@ -1,5 +1,15 @@
 # Test IDB and MySQL
 
+## Summary
+
+Demonstrate sync between remote (MySQL) and local (IDB) databases in the contect of unreliable network.
+
+Unreliable network:
+- no network connectivity
+- unreachable backend
+- bad network quality (drops, jitter)
+- slow network (latency, throughput)
+
 ## Decrypt live certificates (option #2)
 ```
 openssl enc -aes-128-cbc -pbkdf2 -salt -d -in ~/ws-archive/certs.tar.gz.bin | tar xzv --directory ./
