@@ -3,9 +3,10 @@
 }
 
 body {
-  margin: 0;
+  margin: 10px;
 }
 
 .form.add-user {
   display: none;
+  padding: 10px 0px;
 }

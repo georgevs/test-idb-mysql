@@ -79,9 +79,11 @@ class UsersIDb {
 }
 
 //----------------------------------------------------------------------------------------
-class Actions extends EventTarget {
+class Actions {
   constructor(services) {
-    super();
+    const target = new EventTarget();
+    this.addEventListener = target.addEventListener.bind(target);
+    this.dispatchEvent = target.dispatchEvent.bind(target);
     this.services = services;
   }
   load() {
@@ -118,12 +120,17 @@ class Actions extends EventTarget {
         this.dispatchEvent(new CustomEvent('actions:load-complete'));
       });
   }
+  addUser({ email, fullName}) {
+    console.log('actions/add-user', { email, fullName });
+  }
 }
 
 //----------------------------------------------------------------------------------------
-class Model extends EventTarget {
+class Model {
   constructor() {
-    super();
+    const target = new EventTarget();
+    this.addEventListener = target.addEventListener.bind(target);
+    this.dispatchEvent = target.dispatchEvent.bind(target);
     this.users = new Map;
   }
   setUsers(data) {
@@ -139,41 +146,41 @@ class Model extends EventTarget {
     );
     if (added.size + removed.size + updated.size > 0) {
       this.users = users;
-      this.dispatchEvent(new CustomEvent('model:users-changed', { detail: { added, removed, updated } }));
+      this.dispatchEvent(new CustomEvent('model:users-changed', { detail: { users: { all: this.users, added, removed, updated } } }));
     }
   }
 }
 
 //----------------------------------------------------------------------------------------
-class Btn {
-  constructor(sel) {
-    this.el = document.querySelector(sel);
+class Element {
+  constructor(sel, parent) {
+    this.el = (parent ?? document).querySelector(sel);
     this.addEventListener = this.el.addEventListener.bind(this.el);
+    this.dispatchEvent = this.el.dispatchEvent.bind(this.el);
+    this.querySelector = this.el.querySelector.bind(this.el);
   }
 }
+class Btn extends Element { }
+class Form extends Element { }
+class Input extends Element { }
+class Edit extends Input { }
+class List extends Element { }
 
-class Label {
-  constructor(sel) {
-    this.el = document.querySelector(sel);
-  }
+class Label extends Element {
   render(text) {
-    this.el.textContent = text || '';
+    this.el.textContent = (text || '').toString();
     this.el.style.display = text ? 'block' : 'none';
   }
 }
 
-class List {
-  constructor(sel) {
-    this.el = document.querySelector(sel);
-  }
-}
-
+//----------------------------------------------------------------------------------------
 class UsersList extends List {
   constructor(sel) {
     super(sel);
     this.users = new Map;
   }
-  render(users, { added, removed, updated }) {
+  render({ all, added, removed, updated }) {
+    console.log({ all, added, removed, updated });
     Array.from(this.users.keys()).forEach(id => { 
       if (removed.has(id)) {
         this.users.get(id).li.remove();
@@ -182,12 +189,12 @@ class UsersList extends List {
     });
     Array.from(this.users.keys()).forEach(id => { 
       if (updated.has(id)) {
-        this.users.get(id).user = users.get(id);
-        this.users.get(id).li.textContent = users.get(id).email;
+        this.users.get(id).user = all.get(id);
+        this.users.get(id).li.textContent = all.get(id).email;
       } 
     });
     Array.from(added.keys()).forEach(id => { 
-      const user = users.get(id);
+      const user = all.get(id);
       const li = document.createElement('li');
       li.textContent = user.email;
       this.el.appendChild(li);
@@ -196,12 +203,65 @@ class UsersList extends List {
   }
 }
 
+class AddUserForm extends Form { 
+  constructor(sel) {
+    super(sel);
+    this.editEmail = new Edit('.edit.email', this);
+    this.editFullName = new Edit('.edit.full-name', this);
+    this.btnSbmit = new Btn('.btn.submit', this);
+    this.btnCancel = new Btn('.btn.cancel', this);
+
+    this.btnCancel.addEventListener('click', (e) => { e.preventDefault(); this.cancel() });
+    this.addEventListener('submit', (e) => { e.preventDefault(); this.submit() });
+  }
+  show(visible) {
+    this.el.style.display = visible ? 'block' : 'none'; 
+  }
+  cancel(e) {
+    this.dispatchEvent(new CustomEvent('add-user:cancel'));
+  }
+  submit() {
+    const email = this.editEmail.el.value;
+    const fullName = this.editFullName.el.value;
+    if (this.verify({ email, fullName })) {
+      this.dispatchEvent(new CustomEvent('add-user:submit', { detail: { email, fullName } }));
+    }
+  }
+  verify({ email, fullName }) {
+    return true; // todo
+  }
+}
+
 class Ui {
   constructor() {
-    this.load = new Btn('.btn.load');
-    this.message = new Label('.label.message');
-    this.error = new Label('.label.error');
-    this.users = new UsersList('.list.users');
+    const target = new EventTarget();
+    this.addEventListener = target.addEventListener.bind(target);
+    this.dispatchEvent = target.dispatchEvent.bind(target);
+
+    this.btnAdd = new Btn('.btn.add');
+    this.btnLoad = new Btn('.btn.load');
+    this.labelMessage = new Label('.label.message');
+    this.labelError = new Label('.label.error');
+    this.listUsers = new UsersList('.list.users');
+    this.formAddUser = new AddUserForm('.form.add-user');
+
+    this.btnLoad.addEventListener('click', () => { this.dispatchEvent(new CustomEvent('ui:load')) });
+    this.btnAdd.addEventListener('click', () => { this.showAddUser(true) });
+    this.formAddUser.addEventListener('add-user:cancel', () => { this.showAddUser(false) });
+    this.formAddUser.addEventListener('add-user:submit', (e) => { this.submitAddUser(e.detail) });
+  }
+  showAddUser(visible) {
+    this.btnAdd.el.style.display = visible ? 'none' : 'inline-block';
+    this.formAddUser.show(visible);
+  }
+  submitAddUser(detail) {
+    this.showAddUser(false);
+    this.dispatchEvent(new CustomEvent('ui:add-user', { detail }));
+  }
+  render({ message, error, users }) {
+    if (message !== undefined) { this.labelMessage.render(message) }
+    if (error !== undefined) { this.labelError.render(error) }
+    if (users !== undefined) { this.listUsers.render(users) }
   }
 }
 //----------------------------------------------------------------------------------------
@@ -216,14 +276,15 @@ class App {
     this.ui = new Ui();
     this.actions = new Actions(this.services);
 
-    this.ui.load.addEventListener('click', () => { this.actions.load() });
+    this.ui.addEventListener('ui:load', () => { this.actions.load() });
+    this.ui.addEventListener('ui:add-user', (e) => { this.actions.addUser(e.detail) });
 
-    this.actions.addEventListener('actions:load-started', () => { this.ui.message.render('Loading...') });
+    this.actions.addEventListener('actions:load-started', () => { this.ui.render({ message: 'Loading...', error: '' }) });
     this.actions.addEventListener('actions:load-users', (e) => { this.model.setUsers(e.detail.users) });
-    this.actions.addEventListener('actions:load-error', (e) => { this.ui.error.render(e.detail.error?.message) });
-    this.actions.addEventListener('actions:load-complete', () => { this.ui.message.render() });
+    this.actions.addEventListener('actions:load-error', (e) => { this.ui.render({ error: e.detail.error?.message }) });
+    this.actions.addEventListener('actions:load-complete', () => { this.ui.render({ message: '' }) });
 
-    this.model.addEventListener('model:users-changed', (e) => { this.ui.users.render(e.target.users, e.detail) });
+    this.model.addEventListener('model:users-changed', (e) => { this.ui.render({ users: e.detail.users }) });
   }
 }
 

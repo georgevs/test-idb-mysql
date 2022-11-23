@@ -27,7 +27,8 @@ docker container run --rm \
 
 mysql_config_editor set --host=172.18.0.201 --port=3306 --user=root --password
 
-mysql < db.sql
+mysql < db/schema.sql 
+mysql < db/data.sql 
 ```
 
 ## Run the backend
