@@ -10,7 +10,11 @@ Unreliable network:
 - bad network quality (drops, jitter)
 - slow network (latency, throughput)
 
-## Decrypt live certificates (option #2)
+## Workspace
+
+![Workspace](./workspace.drawio.svg)
+
+## Decrypt live certificates
 ```
 openssl enc -aes-128-cbc -pbkdf2 -salt -d -in ~/ws-archive/certs.tar.gz.bin | tar xzv --directory ./
 ```
@@ -74,4 +78,15 @@ docker container run --rm \
   --volume "$PWD/app:/home/node/app" \
   --volume "$PWD/certs:/home/node/certs" \
   -d node npx http-server ./ -c-1 --ssl -p 3443 --cert ../certs/cert.pem --key ../certs/cert-key-nopassword.pem
+
+curl https://172-18-0-203.spamfro.xyz:3443
+```
+
+## Run the app on MBA
+```
+ssh -L 8082:172.18.0.202:3443 opx
+curl https://spamfro.xyz:8082/api/v1/users
+
+ssh -L 8083:172.18.0.203:3443 opx
+curl https://spamfro.xyz:8083/
 ```

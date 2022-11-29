@@ -34,8 +34,26 @@ const db = ({ host, port, user, password }) => {
 
 //----------------------------------------------------------------------------------------
 const app = (db) => {
-  const users = express.Router();
-  users.route('/')
+  const app = express();
+  app.use(cors());
+  app.use(bodyParser.json());
+  app.use('/api/v1/users', usersRouter(db));
+  app.route('*').all(() => { throw createError.NotFound() });
+
+  app.use((err, req, res, next) => {
+    // console.log({ err });
+    if (err?.sqlMessage) { err = createError.InternalServerError(err.sqlMessage) }
+    if (!err?.status) { err = createError.InternalServerError(err) }
+    const { status, message } = { ...err, ...err.constructor.prototype };
+    res.status(status).json({ status, message });
+  });
+
+  return app;
+};
+
+const usersRouter = (db) => {
+  const router = express.Router();
+  router.route('/')
     .get((req, res, next) => {
       const sql = 'SELECT * FROM test.Users';
       db.query({ sql }, (err, results) => {
@@ -57,7 +75,7 @@ const app = (db) => {
     })
     .all(() => { throw createError.MethodNotAllowed() });
 
-  users.route('/:id')
+  router.route('/:id')
     .get((req, res, next) => {
       const id = Number.parseInt(req.params.id);
       if (isNaN(id)) { throw createError.BadRequest('Invalid id') }
@@ -110,21 +128,7 @@ const app = (db) => {
     })
     .all(() => { throw createError.MethodNotAllowed() });
 
-  const app = express();
-  app.use(cors());
-  app.use(bodyParser.json());
-  app.use('/api/v1/users', users);
-  app.route('*').all(() => { throw createError.NotFound() });
-
-  app.use((err, req, res, next) => {
-    // console.log({ err });
-    if (err?.sqlMessage) { err = createError.InternalServerError(err.sqlMessage) }
-    if (!err?.status) { err = createError.InternalServerError(err) }
-    const { status, message } = { ...err, ...err.constructor.prototype };
-    res.status(status).json({ status, message });
-  });
-
-  return app;
+  return router;
 };
 
 //----------------------------------------------------------------------------------------
