@@ -91,11 +91,11 @@ class Actions {
   
     this.dispatchEvent(new CustomEvent('actions:load-started'));
   
-    const f = this.services.db.users().then(users => ({ users, kind: 'fetched' }));
-    const r = this.services.idb.users().then(users => ({ users, kind: 'persisted' }));
+    const f = this.services.db.users().then(dbUsers => ({ dbUsers }));
+    const r = this.services.idb.users().then(idbUsers => ({ idbUsers }));
   
     Promise.all([f, r])
-      .then(([{ users: dbUsers }, { users: idbUsers }]) => {
+      .then(([{ dbUsers }, { idbUsers }]) => {
         const idbIds = new Set(idbUsers.map(({ id }) => id));
         const dbIds = new Set(dbUsers.map(({ id }) => id));
         const removed = diffSet(idbIds, dbIds);
@@ -104,14 +104,14 @@ class Actions {
       });
   
     Promise.any([f, r])
-      .then(({ users, kind }) => {
-        if (kind === 'persisted') { 
-          this.dispatchEvent(new CustomEvent('actions:load-users', { detail: { users } }));
+      .then(({ idbUsers }) => {
+        if (idbUsers) { 
+          this.dispatchEvent(new CustomEvent('actions:load-users', { detail: { users: idbUsers } }));
         }
         return f;
       })
-      .then(({ users }) => { 
-        this.dispatchEvent(new CustomEvent('actions:load-users', { detail: { users } }));
+      .then(({ dbUsers }) => { 
+        this.dispatchEvent(new CustomEvent('actions:load-users', { detail: { users: dbUsers } }));
       })
       .catch(error => { 
         this.dispatchEvent(new CustomEvent('actions:load-error', { detail: { error } }));
